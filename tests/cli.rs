@@ -936,6 +936,11 @@ fn inputs_without_an_address_are_told_apart() {
             json!({ "hash": TXID, "index": 1 }),
             Some("pool")
         ),
+        input(
+            Value::Null,
+            json!({ "hash": TXID, "index": 2 }),
+            Some("pegin")
+        ),
     ]);
     let m = mock(vec![ok(tx)]);
     sochain(&m, &config())
@@ -944,7 +949,8 @@ fn inputs_without_an_address_are_told_apart() {
         .success()
         .stdout(predicate::str::contains("  newly mined coins  1 LTC"))
         .stdout(predicate::str::contains("  (no address)  1 LTC"))
-        .stdout(predicate::str::contains("  MWEB pool  1 LTC"));
+        .stdout(predicate::str::contains("  MWEB pool  1 LTC"))
+        .stdout(predicate::str::contains("  MWEB peg-in  1 LTC"));
 }
 
 #[test]
