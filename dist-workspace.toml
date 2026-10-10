@@ -1,0 +1,37 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.33.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["shell", "powershell", "homebrew", "npm"]
+# A GitHub repo to push Homebrew formulas to
+tap = "BlockIo/homebrew-tap"
+# Formula name, so users run `brew install blockio/tap/sochain`
+formula = "sochain"
+# Publish jobs to run in CI
+# npm publishes via publish-npm.yml
+publish-jobs = ["homebrew", "./publish-npm"]
+# npm package name, so users run `npm install -g sochain-cli` or `npx sochain-cli`
+npm-package = "sochain-cli"
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Whether to install an updater program
+install-updater = false
+github-custom-job-permissions = { "publish-npm" = { contents = "read", id-token = "write" } }
+# Sign release artifacts with GitHub build provenance attestations
+github-attestations = true
+
+# Pin third-party actions to exact commits
+[dist.github-action-commits]
+"actions/checkout" = "d23441a48e516b6c34aea4fa41551a30e30af803" # v6
+"actions/upload-artifact" = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" # v7
+"actions/download-artifact" = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c" # v8
+"actions/setup-node" = "249970729cb0ef3589644e2896645e5dc5ba9c38" # v6
+"actions/attest" = "1e69f48acb82d1966a394da916b4c1698aa569d6" # v4

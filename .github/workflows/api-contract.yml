@@ -1,0 +1,22 @@
+name: API contract
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - src/model.rs
+      - src/commands.rs
+      - scripts/check-api-contract.py
+      - .github/workflows/api-contract.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: python3 scripts/check-api-contract.py

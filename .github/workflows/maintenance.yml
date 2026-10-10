@@ -1,0 +1,34 @@
+name: Maintenance
+
+on:
+  schedule:
+    - cron: "41 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  credentials:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check release credentials
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          headers=$(curl -sS -o /dev/null -D - -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            https://api.github.com/repos/BlockIo/homebrew-tap)
+          status=$(printf '%s' "$headers" | tail -n 1)
+          if [ "$status" != "200" ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN was rejected (HTTP $status); replace it"
+            exit 1
+          fi
+          expires=$(printf '%s' "$headers" | tr -d '\r' \
+            | sed -n 's/^github-authentication-token-expiration: //Ip')
+          [ -z "$expires" ] && exit 0
+          days=$(( ($(date -d "$expires" +%s) - $(date +%s)) / 86400 ))
+          if [ "$days" -lt 30 ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN expires in $days days; replace it"
+            exit 1
+          fi
