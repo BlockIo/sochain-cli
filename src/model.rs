@@ -120,7 +120,8 @@ pub struct TxInput {
     /// Null for a coinbase input, which spends no earlier output.
     #[serde(default)]
     pub previous_output: Option<serde_json::Value>,
-    /// Litecoin: `pool` or `pegin` when the input comes from the MWEB side.
+    /// Litecoin: `pool` when the input spends the MWEB pool, `pegin` when it
+    /// spends a peg-in.
     #[serde(default)]
     pub mweb: Option<String>,
 }

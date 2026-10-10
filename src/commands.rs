@@ -648,6 +648,7 @@ fn show_transaction(out: &mut dyn Write, n: Network, tx: Transaction) -> Result<
     for i in &tx.inputs {
         let who = match (i.address.as_deref(), i.mweb.as_deref(), &i.previous_output) {
             (Some(a), _, _) => a,
+            (None, Some("pegin"), _) => "MWEB peg-in",
             (None, Some(_), _) => "MWEB pool",
             (None, None, None) => "newly mined coins",
             // Pay-to-public-key, bare multisig and other scripts without one.
