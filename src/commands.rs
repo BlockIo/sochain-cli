@@ -54,6 +54,7 @@ pub fn run(cli: Cli, out: &mut dyn Write) -> Result<()> {
             height,
             time,
         } => {
+            let historic = height.is_some() || time.is_some();
             let mut query = vec![];
             if let Some(h) = height {
                 query.push(("height", h.to_string()));
@@ -63,7 +64,7 @@ pub fn run(cli: Cli, out: &mut dyn Write) -> Result<()> {
             }
             let env = lookup(&["balance", network.code(), &address], &query)?;
             emit(out, json, &env, |out, d| {
-                show_balance(out, network, &address, d)
+                show_balance(out, network, &address, historic, d)
             })
         }
         Command::AddressSummary { network, address } => {
@@ -120,10 +121,12 @@ pub fn run(cli: Cli, out: &mut dyn Write) -> Result<()> {
             })
         }
         Command::Transaction { network, hash } => {
+            let hash = lower_hex(hash);
             let env = lookup(&["transaction", network.code(), &hash], &cur())?;
             emit(out, json, &env, |out, d| show_transaction(out, network, d))
         }
         Command::TransactionStatus { network, hash } => {
+            let hash = lower_hex(hash);
             let env = lookup(&["transaction_status", network.code(), &hash], &[])?;
             emit(out, json, &env, |out, d| show_status(out, &hash, d))
         }
@@ -133,7 +136,7 @@ pub fn run(cli: Cli, out: &mut dyn Write) -> Result<()> {
                 let env = api.get(&["best_block_hash", network.code()], &[])?;
                 data::<BestBlockHash>(&env)?.hash
             } else {
-                id
+                lower_hex(id)
             };
             let env = api.get(&["block", network.code(), &id], &cur())?;
             emit(out, json, &env, |out, d| show_block(out, network, d))
@@ -168,11 +171,16 @@ pub fn run(cli: Cli, out: &mut dyn Write) -> Result<()> {
         Command::Price { network, time } => {
             let mut segments = vec!["price".to_owned(), network.code().to_owned()];
             if let Some(t) = &time {
-                let ts = parse_unix_or_date(t).ok_or_else(|| {
-                    CliError::BadInput(format!(
-                        "invalid --time {t:?}: expected unix seconds or a date (YYYY-MM-DD)"
-                    ))
-                })?;
+                // SoChain reads only 7 to 10 digits as a time, and answers
+                // anything else with the latest price.
+                let digits = t.bytes().all(|b| b.is_ascii_digit());
+                let ts = parse_unix_or_date(t)
+                    .filter(|_| !digits || (7..=10).contains(&t.len()))
+                    .ok_or_else(|| {
+                        CliError::BadInput(format!(
+                            "invalid --time {t:?}: expected unix seconds (7 to 10 digits) or a date (YYYY-MM-DD)"
+                        ))
+                    })?;
                 segments.push(ts.to_string());
             }
             let segments: Vec<&str> = segments.iter().map(String::as_str).collect();
@@ -186,6 +194,12 @@ pub fn run(cli: Cli, out: &mut dyn Write) -> Result<()> {
             page,
             page_size,
         } => {
+            let pages = 1000 / page_size;
+            if page > pages {
+                return Err(CliError::BadInput(format!(
+                    "--page is at most {pages} with {page_size} holders per page"
+                )));
+            }
             let env = lookup(
                 &["rich_list", network.code()],
                 &[
@@ -251,7 +265,8 @@ pub fn run(cli: Cli, out: &mut dyn Write) -> Result<()> {
             to,
             last,
         } => {
-            let mut query = cur();
+            // Only price_usd takes a currency; other series refuse it.
+            let mut query = if series == "price_usd" { cur() } else { vec![] };
             if let Some(f) = from {
                 query.push(("from", f.to_string()));
             }
@@ -394,15 +409,30 @@ fn print_json(out: &mut dyn Write, v: &Value) -> Result<()> {
     Ok(())
 }
 
-fn show_balance(out: &mut dyn Write, n: Network, address: &str, b: Balance) -> Result<()> {
-    if let Some(height) = b.height {
-        let when = b.time.map(|t| format!(", {}", utc(t))).unwrap_or_default();
-        writeln!(
-            out,
-            "{address} held {} {n} at block {}{when}",
-            b.confirmed,
-            group_thousands(height.into())
-        )?;
+fn show_balance(
+    out: &mut dyn Write,
+    n: Network,
+    address: &str,
+    historic: bool,
+    b: Balance,
+) -> Result<()> {
+    if historic {
+        match b.height {
+            Some(height) => {
+                let when = b.time.map(|t| format!(", {}", utc(t))).unwrap_or_default();
+                writeln!(
+                    out,
+                    "{address} held {} {n} at block {}{when}",
+                    b.confirmed,
+                    group_thousands(height.into())
+                )?;
+            }
+            None => writeln!(
+                out,
+                "{address} held nothing then: that is before {}'s first block",
+                n.name()
+            )?,
+        }
         return Ok(());
     }
     writeln!(out, "Balance {} {n}", b.confirmed)?;
@@ -458,6 +488,15 @@ fn transactions(
     let mut query: Vec<(&str, String)> = currency
         .map(|c| vec![("currency", c.to_owned())])
         .unwrap_or_default();
+    // Flags the next page needs again: the cursor carries the filters, not
+    // the page size or currency.
+    let mut again = String::new();
+    if let Some(size) = f.page_size {
+        again += &format!(" --page-size {size}");
+    }
+    if let Some(c) = currency {
+        again += &format!(" --currency {c}");
+    }
     if !f.filtered() {
         let page = f.page.unwrap_or(1);
         let env = api.get(
@@ -471,7 +510,7 @@ fn transactions(
             } else if d.transactions.len() >= PAGE_SIZE {
                 writeln!(
                     out,
-                    "More: sochain transactions {n} {address} --page {}",
+                    "More: sochain transactions {n} {address} --page {}{again}",
                     page + 1
                 )?;
             }
@@ -502,7 +541,7 @@ fn transactions(
         if let Some(cursor) = next {
             // stderr, so the CSV on stdout stays clean.
             eprintln!(
-                "sochain: more rows: sochain transactions {n} {address} --csv --cursor {}",
+                "sochain: more rows: sochain transactions {n} {address} --csv --cursor {}{again}",
                 crate::sanitize::clean(cursor)
             );
         }
@@ -528,7 +567,7 @@ fn transactions(
         if let Some(cursor) = &d.next_cursor {
             writeln!(
                 out,
-                "More: sochain transactions {n} {address} --cursor {cursor}"
+                "More: sochain transactions {n} {address} --cursor {cursor}{again}"
             )?;
         }
         Ok(())
@@ -607,7 +646,13 @@ fn show_transaction(out: &mut dyn Write, n: Network, tx: Transaction) -> Result<
         writeln!(out, "  (no transparent inputs)")?;
     }
     for i in &tx.inputs {
-        let who = i.address.as_deref().unwrap_or("newly mined coins");
+        let who = match (i.address.as_deref(), i.mweb.as_deref(), &i.previous_output) {
+            (Some(a), _, _) => a,
+            (None, Some(_), _) => "MWEB pool",
+            (None, None, None) => "newly mined coins",
+            // Pay-to-public-key, bare multisig and other scripts without one.
+            (None, None, Some(_)) => "(no address)",
+        };
         match i.value {
             Some(v) => writeln!(out, "  {who}  {v} {n}")?,
             None => writeln!(out, "  {who}")?,
@@ -618,10 +663,12 @@ fn show_transaction(out: &mut dyn Write, n: Network, tx: Transaction) -> Result<
         writeln!(out, "  (no transparent outputs)")?;
     }
     for o in &tx.outputs {
-        let who = match (o.address.as_deref(), o.kind.as_deref()) {
-            (_, Some("nulldata")) | (Some("op_return"), _) => "data (OP_RETURN)",
-            (Some(a), _) => a,
-            (None, _) => "(no address)",
+        let who = match (o.address.as_deref(), o.kind.as_deref(), o.mweb.as_deref()) {
+            (_, Some("nulldata"), _) | (Some("op_return"), _, _) => "data (OP_RETURN)",
+            (Some(a), _, _) => a,
+            (None, _, Some("pegin")) => "into MWEB (peg-in)",
+            (None, _, Some(_)) => "MWEB pool",
+            (None, _, None) => "(no address)",
         };
         writeln!(out, "  {who}  {} {n}", o.value)?;
     }
@@ -723,25 +770,37 @@ fn show_block(out: &mut dyn Write, n: Network, b: Block) -> Result<()> {
         plural(b.num_txs, "transaction"),
         group_thousands(b.size.into())
     )?;
-    if b.is_orphan {
+    let orphaned = b.is_orphan || b.confirmations < 0;
+    if orphaned {
         writeln!(out, "Orphaned: this block is not part of the main chain.")?;
     }
     writeln!(out, "Mined {} ({})", utc(b.time), ago(b.time, t))?;
+    // On Litecoin value_out includes the MWEB pool carried over from the
+    // previous block, which did not move.
+    let moved = match &b.mweb {
+        Some(m) => Amount(b.value_out.0 - m.pool.0),
+        None => b.value_out,
+    };
     writeln!(
         out,
         "Reward {} {n} plus {} {n} in fees · {} {n} moved",
         b.reward,
         b.fees,
-        b.value_out.display(2)
+        moved.display(2)
     )?;
+    if let Some(m) = &b.mweb {
+        writeln!(out, "MWEB pool {} {n}", m.pool.display(2))?;
+    }
     if let Some(p) = b.price.as_ref().filter(|p| !p.value.is_zero()) {
         writeln!(out, "Price then 1 {n} = {}", format_price(p))?;
     }
-    writeln!(
-        out,
-        "Confirmations {}",
-        group_thousands(b.confirmations.into())
-    )?;
+    if !orphaned {
+        writeln!(
+            out,
+            "Confirmations {}",
+            group_thousands(b.confirmations.into())
+        )?;
+    }
     writeln!(out, "Difficulty {}", format_difficulty(&b.difficulty))?;
     writeln!(out, "Hash {}", b.hash)?;
     if let Some(prev) = &b.previous_block_hash {
@@ -807,7 +866,9 @@ fn show_network_info(out: &mut dyn Write, n: Network, i: NetworkInfo) -> Result<
 /// `fees --json`: the fee part of network_info, in the same envelope.
 fn fees_json(n: Network, d: &Value) -> Value {
     let blocks = d["mempool"]["blocks"].clone();
-    let suggested = blocks[0]["median_fee_rate_precise"].clone();
+    // The next block's median rounded up to a whole unit, as SoChain's docs
+    // recommend: the precise median can be below what nodes relay.
+    let suggested = blocks[0]["median_fee_rate"].clone();
     json!({
         "network": n.code(),
         "unit": n.fee_rate_unit(),
@@ -831,11 +892,8 @@ fn show_fees(out: &mut dyn Write, n: Network, i: &NetworkInfo) -> Result<()> {
         } else {
             writeln!(
                 out,
-                "Suggested fee rate {} {unit} (the next block's median).",
-                rate(
-                    next.median_fee_rate_precise.as_deref(),
-                    next.median_fee_rate
-                )
+                "Suggested fee rate {} {unit} (the next block's median, rounded up).",
+                format_number(next.median_fee_rate)
             )?;
         }
     }
@@ -969,7 +1027,11 @@ fn show_balance_history(
     } else {
         String::new()
     };
-    writeln!(out, "Balance of {address} by {}{range}", h.interval)?;
+    writeln!(
+        out,
+        "Balance of {address} at the end of each {}{range}",
+        h.interval
+    )?;
     if points.is_empty() {
         writeln!(out, "No activity in this range.")?;
     }
@@ -990,7 +1052,12 @@ fn show_balance_history(
         } else {
             format!("  {}", moves.join(", "))
         };
-        writeln!(out, "  {}  {} {n}{moves}", utc_date(p.t), p.v)?;
+        writeln!(
+            out,
+            "  {}  {} {n}{moves}",
+            period_label(p.t, &h.interval),
+            p.v
+        )?;
     }
     Ok(())
 }
@@ -1119,6 +1186,30 @@ fn show_chart(out: &mut dyn Write, n: Network, r: Chart, last: usize) -> Result<
     Ok(())
 }
 
+/// A balance-history period from its start: `2026-08-03`, `week of
+/// 2026-08-03`, `2026-08`. The last point is the balance now, at a time
+/// that starts no period, so it is shown as its date.
+fn period_label(t: i64, interval: &str) -> String {
+    let date = utc_date(t);
+    let day = t.div_euclid(86_400);
+    let midnight = t.rem_euclid(86_400) == 0;
+    match interval {
+        // 1970-01-01 was a Thursday, so Mondays are 4 days on.
+        "week" if midnight && (day - 4).rem_euclid(7) == 0 => format!("week of {date}"),
+        "month" if midnight && date.ends_with("-01") => date[..7].to_owned(),
+        _ => date,
+    }
+}
+
+/// A transaction id or block hash in the lower case the API expects.
+fn lower_hex(s: String) -> String {
+    if s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()) {
+        s.to_ascii_lowercase()
+    } else {
+        s
+    }
+}
+
 fn point_label(p: &ChartPoint, interval: &str) -> String {
     match (interval, p.height) {
         ("block", Some(h)) => format!("block {}", group_thousands(h.into())),
@@ -1140,8 +1231,16 @@ fn show_account(out: &mut dyn Write, a: &Value) -> Result<()> {
             group_thousands(yesterday.into())
         )?;
     }
-    if let Some(month) = used["this_month"].as_u64().or(used["month"].as_u64()) {
-        writeln!(out, "Requests this month {}", group_thousands(month.into()))?;
+    if let Some(month) = used["this_month"].as_u64() {
+        let quota = a["plan"]["max_monthly_requests"]
+            .as_u64()
+            .map(|q| format!(" of {}", group_thousands(q.into())))
+            .unwrap_or_default();
+        writeln!(
+            out,
+            "Requests this month {}{quota}",
+            group_thousands(month.into())
+        )?;
     }
     if let Some(ends) = a["plan"]["current_period_ends_at"].as_str() {
         let renews = if a["plan"]["will_renew_at_period_end"] == true {
@@ -1394,6 +1493,15 @@ mod tests {
             "lt_1 11,407 (228)"
         );
         assert_eq!(format_chart_value("tx_count", &Value::Null), "no data");
+    }
+
+    #[test]
+    fn labels_balance_periods() {
+        assert_eq!(period_label(1_780_272_000, "month"), "2026-06");
+        assert_eq!(period_label(1_780_272_000 + 3_600, "month"), "2026-06-01");
+        assert_eq!(period_label(1_785_715_200, "week"), "week of 2026-08-03");
+        assert_eq!(period_label(1_785_801_600, "week"), "2026-08-04");
+        assert_eq!(period_label(1_785_801_600, "day"), "2026-08-04");
     }
 
     #[test]

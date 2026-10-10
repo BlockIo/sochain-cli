@@ -117,6 +117,12 @@ pub struct TxInput {
     pub address: Option<String>,
     #[serde(default)]
     pub value: Option<Amount>,
+    /// Null for a coinbase input, which spends no earlier output.
+    #[serde(default)]
+    pub previous_output: Option<serde_json::Value>,
+    /// Litecoin: `pool` or `pegin` when the input comes from the MWEB side.
+    #[serde(default)]
+    pub mweb: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +132,9 @@ pub struct TxOutput {
     pub value: Amount,
     #[serde(default, rename = "type")]
     pub kind: Option<String>,
+    /// Litecoin: `pegin`, `pool` or `pegout` for outputs touching MWEB.
+    #[serde(default)]
+    pub mweb: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,7 +154,8 @@ pub struct Block {
     pub height: u64,
     pub hash: String,
     pub time: i64,
-    pub confirmations: u64,
+    /// -1 for a block that is no longer part of the main chain.
+    pub confirmations: i64,
     pub num_txs: u64,
     pub size: u64,
     pub previous_block_hash: Option<String>,
@@ -158,6 +168,15 @@ pub struct Block {
     pub value_out: Amount,
     #[serde(default)]
     pub price: Option<Price>,
+    /// Litecoin: the MWEB summary. value_out includes the MWEB pool carried
+    /// over from block to block.
+    #[serde(default)]
+    pub mweb: Option<BlockMweb>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlockMweb {
+    pub pool: Amount,
 }
 
 #[derive(Debug, Deserialize)]

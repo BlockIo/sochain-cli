@@ -52,7 +52,8 @@ sochain chart BTC tx_count --interval day --json
 
 ## API key
 
-Lookups work without a key: 2,500 a day per IP address. With a key, the
+Lookups work without a key: at least 2,500 a day per IP address, more when
+there's room. With a key, the
 account's plan applies. The CLI reads `SOCHAIN_API_KEY`, or a key saved by
 `sochain auth login`; `sochain auth status` shows which is used. Never print
 the key or pass it on the command line.

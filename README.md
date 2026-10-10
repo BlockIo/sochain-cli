@@ -8,7 +8,7 @@ $ sochain balance BTC bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
 Balance 3.92247777 BTC
 
 $ sochain fees BTC
-Suggested fee rate 0.25 sat/vB (the next block's median).
+Suggested fee rate 1 sat/vB (the next block's median, rounded up).
 ...
 
 $ sochain transaction LTC <txid>
@@ -106,7 +106,8 @@ instead of US dollars. Run `sochain <command> --help` for details and examples.
 
 ## API key
 
-Lookups work without a key, up to 2,500 a day per IP address. For more, get a
+Lookups work without a key: at least 2,500 a day per IP address, and up to
+25,000 when there's room. For more, get a
 key at [sochain.com/signin](https://sochain.com/signin) (plans and limits:
 [sochain.com/pricing](https://sochain.com/pricing)), then either:
 
@@ -133,7 +134,9 @@ sent only to sochain.com, and never printed.
   `sochain schema` describes every command as JSON.
 - `sochain skill install` adds the SoChain skill to Claude Code and Codex.
 - `sochain mcp install` adds the hosted MCP server, `https://sochain.com/mcp`,
-  to Codex and Claude Code (`--use-api-key` to use your key). By hand:
+  to Codex and Claude Code. With `--use-api-key` it uses your key: Codex reads
+  it from `SOCHAIN_API_KEY`, and Claude Code saves it in its own config (or, with
+  `--project`, reads `SOCHAIN_API_KEY`). By hand:
 
   ```sh
   codex mcp add sochain --url https://sochain.com/mcp --bearer-token-env-var SOCHAIN_API_KEY

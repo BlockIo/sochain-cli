@@ -125,12 +125,12 @@ fn commands() -> Value {
         },
         "fees <network>": {
             "api": "GET /network_info/{network}",
-            "data": "network, unit (sat/vB, lit/vB, koinu/vB or zat/action), suggested_fee_rate (the next block's median, a decimal string), mempool_txs, mempool_size, blocks (as in network-info)",
+            "data": "network, unit (sat/vB, lit/vB, koinu/vB or zat/action), suggested_fee_rate (the next block's median rounded up to a whole unit, a number), mempool_txs, mempool_size, blocks (as in network-info)",
             "notes": "unlike other commands, --json reshapes the API reply to the fee fields"
         },
         "price <network> [--time T]": {
             "api": "GET /price/{network} or GET /price/{network}/{unix_timestamp}",
-            "data": "value, currency, as_of?, sources?; with --currency other than USD: method (native | usd_fx), fx_rate?, fx_date?",
+            "data": "value, currency, as_of?, sources?; with --currency: method (native | usd_fx), fx_rate?, fx_date? (usd_fx only)",
             "notes": "--time takes unix seconds or a date and gives that UTC day's opening price"
         },
         "rich-list <network> [--page N] [--page-size 25|50|100]": {
@@ -146,7 +146,7 @@ fn commands() -> Value {
         },
         "balance-history <network> <address> [--interval day|week|month] [--from T] [--to T] [--last N]": {
             "api": "GET /balance_history/{network}/{address}?interval&from&to",
-            "data": "address, interval, points[{t, height, v, received, sent, tx_in, tx_out}]",
+            "data": "address, interval, points[{t (start of the period), height, v (balance at the end of the period), received, sent, tx_in, tx_out}]",
             "notes": "--last limits text output only"
         },
         "address-poisoning <network> <address> [--limit N]": {
