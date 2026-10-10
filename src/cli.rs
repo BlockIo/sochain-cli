@@ -17,7 +17,7 @@ use crate::network::Network;
         LTCTEST, DOGETEST, ZECTEST), in any case.\n\n\
         Output is plain English by default. Pass --json (or set SOCHAIN_JSON=1) for the \
         API's JSON reply, unchanged; errors are then JSON on stderr.\n\n\
-        Lookups work without an API key (2,500 a day per IP address). With a key, your \
+        Lookups work without an API key (at least 2,500 a day per IP address). With a key, your \
         plan's limits apply: run `sochain auth login`, or set SOCHAIN_API_KEY.\n\n\
         Exit codes: 0 ok, 1 other error, 2 bad input, 3 not found, 4 SoChain unavailable, \
         5 rate limited, 6 API key missing, invalid or not allowed.",
@@ -533,9 +533,10 @@ pub enum McpCommand {
     /// Add https://sochain.com/mcp to Codex and Claude Code
     #[command(
         after_help = "Uses each agent's own command (`codex mcp add`, `claude mcp add`); nothing\n\
-            runs locally. Without --use-api-key the server is used without a key (2,500\n\
-            lookups a day per IP address). With it, the agent reads your key from\n\
-            SOCHAIN_API_KEY when it starts, so the key itself is not written to its config.\n\
+            runs locally. Without --use-api-key the server is used without a key (at\n\
+            least 2,500 lookups a day per IP address). With it, Codex reads your key from\n\
+            SOCHAIN_API_KEY when it starts, and so does Claude Code with --project; for\n\
+            Claude Code's user scope the key is saved in Claude Code's own config.\n\
             For Cursor and other apps, --print shows what to add.\n\n\
             Examples:\n  sochain mcp install\n  sochain mcp install --use-api-key\n  sochain mcp install --print"
     )]

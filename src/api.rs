@@ -153,11 +153,19 @@ impl Api {
         let mut attempt = 0;
         let resp = loop {
             let resp = self.send(url, accept, true)?;
-            if resp.status() != StatusCode::TOO_MANY_REQUESTS {
+            // A 503 that says when to come back (SoChain is briefly busy) is
+            // waited out like a rate limit; one without Retry-After is not.
+            let busy = resp.status() == StatusCode::SERVICE_UNAVAILABLE;
+            if resp.status() != StatusCode::TOO_MANY_REQUESTS
+                && !(busy && retry_after(&resp).is_some())
+            {
                 break resp;
             }
             let wait = retry_after(&resp).unwrap_or(1);
             attempt += 1;
+            if busy && (attempt > RATE_LIMIT_RETRIES || wait > MAX_RETRY_WAIT_SECS) {
+                break resp;
+            }
             if attempt > RATE_LIMIT_RETRIES || wait > MAX_RETRY_WAIT_SECS {
                 let message = resp
                     .json::<Value>()
@@ -174,7 +182,12 @@ impl Api {
                 });
             }
             self.note(&format!(
-                "too many requests at once; retrying in {}",
+                "{}; retrying in {}",
+                if busy {
+                    "SoChain is busy"
+                } else {
+                    "too many requests at once"
+                },
                 seconds(wait)
             ));
             sleep(Duration::from_secs(wait));

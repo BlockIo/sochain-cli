@@ -699,7 +699,7 @@ fn fees_show_the_suggested_rate() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "Suggested fee rate 0.28 sat/vB (the next block's median).",
+            "Suggested fee rate 1 sat/vB (the next block's median, rounded up).",
         ));
     let out = sochain(&m, &config())
         .args(["fees", "BTC", "--json"])
@@ -707,7 +707,7 @@ fn fees_show_the_suggested_rate() {
         .unwrap();
     let v: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["data"]["unit"], "sat/vB");
-    assert_eq!(v["data"]["suggested_fee_rate"], "0.28");
+    assert_eq!(v["data"]["suggested_fee_rate"], 1);
     assert_eq!(m.paths(), ["/api/v3/network_info/BTC"; 2]);
 }
 
@@ -867,4 +867,159 @@ fn skill_files_must_be_on_the_same_site() {
         .code(1)
         .stderr(predicate::str::contains("not on sochain.com"));
     assert_eq!(m.paths().len(), 1);
+}
+
+#[test]
+fn chart_sends_currency_only_for_price_usd() {
+    let chart = |series: &str| ok(json!({ "series": series, "interval": "day", "points": [] }));
+    let m = mock(vec![chart("tx_count"), chart("price_usd")]);
+    for series in ["tx_count", "price_usd"] {
+        sochain(&m, &config())
+            .args(["chart", "BTC", series, "--currency", "EUR"])
+            .assert()
+            .success();
+    }
+    assert_eq!(
+        m.paths(),
+        [
+            "/api/v3/charts/BTC/tx_count/day",
+            "/api/v3/charts/BTC/price_usd/day?currency=EUR"
+        ]
+    );
+}
+
+#[test]
+fn orphaned_blocks_say_so() {
+    let mut b = block();
+    b["confirmations"] = json!(-1);
+    let m = mock(vec![ok(b)]);
+    sochain(&m, &config())
+        .args(["block", "BTC", "968995"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Orphaned: this block is not part"))
+        .stdout(predicate::str::contains("Confirmations").not());
+}
+
+#[test]
+fn litecoin_blocks_leave_the_mweb_pool_out_of_moved() {
+    let mut b = block();
+    b["value_out"] = json!("465500.00000000");
+    b["mweb"] = json!({ "pool": "465488.20543425", "pool_change": "0.00000000",
+        "pegin": "0.00000000", "pegin_count": 0, "pegout": "0.00000000",
+        "pegout_count": 0, "fees": "0.00000000", "kernels": 0 });
+    let m = mock(vec![ok(b)]);
+    sochain(&m, &config())
+        .args(["block", "LTC", "3192467"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("11.79 LTC moved"))
+        .stdout(predicate::str::contains("MWEB pool 465,488.21 LTC"));
+}
+
+#[test]
+fn inputs_without_an_address_are_told_apart() {
+    let mut tx = transaction();
+    let input = |address: Value, previous: Value, mweb: Option<&str>| {
+        let mut i = json!({ "index": 0, "value": "1.00000000", "address": address,
+            "scriptSig": { "hex": "", "asm": "" }, "witness": [], "previous_output": previous });
+        if let Some(m) = mweb {
+            i["mweb"] = json!(m);
+        }
+        i
+    };
+    tx["inputs"] = json!([
+        input(Value::Null, Value::Null, None),
+        input(Value::Null, json!({ "hash": TXID, "index": 0 }), None),
+        input(
+            Value::Null,
+            json!({ "hash": TXID, "index": 1 }),
+            Some("pool")
+        ),
+    ]);
+    let m = mock(vec![ok(tx)]);
+    sochain(&m, &config())
+        .args(["tx", "LTC", TXID])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("  newly mined coins  1 LTC"))
+        .stdout(predicate::str::contains("  (no address)  1 LTC"))
+        .stdout(predicate::str::contains("  MWEB pool  1 LTC"));
+}
+
+#[test]
+fn hashes_are_sent_in_lower_case() {
+    let m = mock(vec![ok(transaction())]);
+    sochain(&m, &config())
+        .args(["tx", "BTC", &TXID.to_ascii_uppercase()])
+        .assert()
+        .success();
+    assert_eq!(m.paths(), [format!("/api/v3/transaction/BTC/{TXID}")]);
+}
+
+#[test]
+fn price_time_must_be_seconds() {
+    let m = mock(vec![]);
+    for bad in ["1704067200000", "0"] {
+        sochain(&m, &config())
+            .args(["price", "BTC", "--time", bad])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("7 to 10 digits"));
+    }
+    assert!(m.paths().is_empty());
+}
+
+#[test]
+fn balance_before_the_first_block_is_not_todays() {
+    let m = mock(vec![ok(json!({
+        "address": ADDR, "height": null, "time": null, "block_hash": null,
+        "confirmed": "0.00000000", "tip_height": 970712
+    }))]);
+    sochain(&m, &config())
+        .args(["balance", "BTC", ADDR, "--time", "2008-01-01"])
+        .assert()
+        .success()
+        .stdout(format!(
+            "{ADDR} held nothing then: that is before Bitcoin's first block\n"
+        ));
+}
+
+#[test]
+fn next_page_hints_keep_page_size_and_currency() {
+    let m = mock(vec![ok(
+        json!({ "transactions": [history_row("1.00000000")], "next_cursor": "c2" }),
+    )]);
+    sochain(&m, &config())
+        .args(["txs", "BTC", ADDR, "--page-size", "1", "--currency", "EUR"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "More: sochain transactions BTC {ADDR} --cursor c2 --page-size 1 --currency EUR"
+        )));
+}
+
+#[test]
+fn short_busy_replies_are_retried() {
+    let busy = with_header(fail(503, "Busy, try again."), "retry-after", "1");
+    let m = mock(vec![busy, ok(json!({ "hash": HASH }))]);
+    sochain(&m, &config())
+        .args(["best-block-hash", "BTC"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "SoChain is busy; retrying in 1 second",
+        ));
+    assert_eq!(m.paths().len(), 2);
+}
+
+#[test]
+fn rich_list_pages_stop_at_the_top_1000() {
+    let m = mock(vec![]);
+    sochain(&m, &config())
+        .args(["rich-list", "BTC", "--page", "11"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--page is at most 10"));
+    assert!(m.paths().is_empty());
 }

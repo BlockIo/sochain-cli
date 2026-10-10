@@ -231,7 +231,7 @@ pub fn status(
         } else {
             writeln!(
                 out,
-                "No API key. Lookups still work, up to 2,500 a day per IP address.\n\
+                "No API key. Lookups still work: at least 2,500 a day per IP address, more when there's room.\n\
                  Get a key at https://sochain.com/signin, then run `sochain auth login` \
                  or set {ENV_KEY}."
             )?;
