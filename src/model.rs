@@ -109,6 +109,13 @@ pub struct Transaction {
     /// the transparent side.
     #[serde(default)]
     pub shielded: Option<serde_json::Map<String, serde_json::Value>>,
+    /// What kind of transaction it is, such as `coinjoin`; null when not
+    /// classified.
+    #[serde(default)]
+    pub kind: Option<String>,
+    /// True when the kind is a guess.
+    #[serde(default)]
+    pub heuristic: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -212,6 +219,9 @@ pub struct NetworkInfo {
 pub struct Mempool {
     pub mempool_txs: u64,
     pub mempool_size: u64,
+    /// True while SoChain is still reading the mempool in; counts can be low.
+    #[serde(default)]
+    pub loading: bool,
     #[serde(default)]
     pub blocks: Vec<ProjectedBlock>,
 }

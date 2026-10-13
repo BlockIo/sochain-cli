@@ -1029,3 +1029,67 @@ fn rich_list_pages_stop_at_the_top_1000() {
         .stderr(predicate::str::contains("--page is at most 10"));
     assert!(m.paths().is_empty());
 }
+
+#[test]
+fn transaction_kind_is_shown_with_its_certainty() {
+    let mut tx = transaction();
+    tx["kind"] = json!("coinjoin");
+    tx["heuristic"] = json!(true);
+    let mut plain = transaction();
+    plain["kind"] = json!("batch_payout");
+    plain["heuristic"] = json!(false);
+    let m = mock(vec![ok(tx), ok(plain), ok(transaction())]);
+    sochain(&m, &config())
+        .args(["tx", "BTC", TXID])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Kind coinjoin (likely)\n"));
+    sochain(&m, &config())
+        .args(["tx", "BTC", TXID])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Kind batch payout\n"));
+    sochain(&m, &config())
+        .args(["tx", "BTC", TXID])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Kind").not());
+}
+
+#[test]
+fn a_loading_mempool_is_noted() {
+    let mut info = network_info();
+    info["mempool"]["loading"] = json!(true);
+    let m = mock(vec![ok(info.clone()), ok(info), ok(network_info())]);
+    for cmd in ["network-info", "fees"] {
+        sochain(&m, &config())
+            .args([cmd, "BTC"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("still reading the mempool in"));
+    }
+    sochain(&m, &config())
+        .args(["fees", "BTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("still reading").not());
+}
+
+#[test]
+fn account_shows_the_monthly_quota() {
+    let mut a = account();
+    a["plan"]["name"] = json!("hobby");
+    a["plan"]["max_monthly_requests"] = json!(500000);
+    a["num_requests_used"]["this_month"] = json!(12345);
+    a["quota_resets_in_seconds"] = json!(273_600);
+    let m = mock(vec![reply(200, a)]);
+    sochain(&m, &config())
+        .env("SOCHAIN_API_KEY", KEY)
+        .arg("account")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Plan hobby"))
+        .stdout(predicate::str::contains(
+            "Requests this month 12,345 of 500,000 · resets in 3 days 4 h",
+        ));
+}

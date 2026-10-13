@@ -641,6 +641,14 @@ fn show_transaction(out: &mut dyn Write, n: Network, tx: Transaction) -> Result<
         _ => "waiting in the mempool (unconfirmed)".into(),
     };
     writeln!(out, "Status {status} · {}", utc(tx.time))?;
+    if let Some(kind) = &tx.kind {
+        let guess = if tx.heuristic == Some(true) {
+            " (likely)"
+        } else {
+            ""
+        };
+        writeln!(out, "Kind {}{guess}", kind.replace('_', " "))?;
+    }
     writeln!(out, "From:")?;
     if tx.inputs.is_empty() {
         writeln!(out, "  (no transparent inputs)")?;
@@ -848,6 +856,12 @@ fn show_network_info(out: &mut dyn Write, n: Network, i: NetworkInfo) -> Result<
         plural(i.mempool.mempool_txs, "transaction"),
         group_thousands(i.mempool.mempool_size.into())
     )?;
+    if i.mempool.loading {
+        writeln!(
+            out,
+            "Note: SoChain is still reading the mempool in, so these counts may be low for now."
+        )?;
+    }
     if let Some(next) = i.mempool.blocks.first() {
         writeln!(
             out,
@@ -904,6 +918,12 @@ fn show_fees(out: &mut dyn Write, n: Network, i: &NetworkInfo) -> Result<()> {
         plural(i.mempool.mempool_txs, "transaction"),
         group_thousands(i.mempool.mempool_size.into())
     )?;
+    if i.mempool.loading {
+        writeln!(
+            out,
+            "Note: SoChain is still reading the mempool in, so these counts may be low for now."
+        )?;
+    }
     if blocks.is_empty() {
         return Ok(());
     }
@@ -1187,6 +1207,17 @@ fn show_chart(out: &mut dyn Write, n: Network, r: Chart, last: usize) -> Result<
     Ok(())
 }
 
+/// `3 days 4 h`, `5 h 20 min`, `12 min`.
+fn duration(s: u64) -> String {
+    let (d, h, m) = (s / 86_400, s % 86_400 / 3_600, s % 3_600 / 60);
+    match (d, h) {
+        (0, 0) => format!("{} min", m.max(1)),
+        (0, _) => format!("{h} h {m} min"),
+        (1, _) => format!("1 day {h} h"),
+        _ => format!("{d} days {h} h"),
+    }
+}
+
 /// A balance-history period from its start: `2026-08-03`, `week of
 /// 2026-08-03`, `2026-08`. The last point is the balance now, at a time
 /// that starts no period, so it is shown as its date.
@@ -1237,9 +1268,13 @@ fn show_account(out: &mut dyn Write, a: &Value) -> Result<()> {
             .as_u64()
             .map(|q| format!(" of {}", group_thousands(q.into())))
             .unwrap_or_default();
+        let resets = a["quota_resets_in_seconds"]
+            .as_u64()
+            .map(|s| format!(" · resets in {}", duration(s)))
+            .unwrap_or_default();
         writeln!(
             out,
-            "Requests this month {}{quota}",
+            "Requests this month {}{quota}{resets}",
             group_thousands(month.into())
         )?;
     }
@@ -1494,6 +1529,15 @@ mod tests {
             "lt_1 11,407 (228)"
         );
         assert_eq!(format_chart_value("tx_count", &Value::Null), "no data");
+    }
+
+    #[test]
+    fn formats_durations() {
+        assert_eq!(duration(30), "1 min");
+        assert_eq!(duration(720), "12 min");
+        assert_eq!(duration(19_200), "5 h 20 min");
+        assert_eq!(duration(100_800), "1 day 4 h");
+        assert_eq!(duration(273_600), "3 days 4 h");
     }
 
     #[test]

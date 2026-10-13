@@ -98,7 +98,7 @@ fn commands() -> Value {
         "transaction <network> <txid>": {
             "aliases": ["tx"],
             "api": "GET /transaction/{network}/{hash}",
-            "data": "hash, confirmations, size, vsize, weight, version, locktime, block_hash, block_height|null, time, inputs_n, outputs_n, inputs_value, outputs_value, fee, price, inputs[{index, value, address, previous_output{hash,index}, ...}], outputs[{index, value, address, type, script, spent, ...}], shielded? (Zcash), mweb labels (Litecoin)"
+            "data": "hash, confirmations, size, vsize, weight, version, locktime, block_hash, block_height|null, time, inputs_n, outputs_n, inputs_value, outputs_value, fee, price, inputs[{index, value, address, previous_output{hash,index}, ...}], outputs[{index, value, address, type, script, spent, ...}], shielded? (Zcash), mweb labels (Litecoin), kind (payment, coinjoin, inscription, ... or null), heuristic (true when kind is a guess, null with no kind)"
         },
         "transaction-status <network> <txid>": {
             "aliases": ["status"],
@@ -121,7 +121,7 @@ fn commands() -> Value {
         "network-info <network>": {
             "aliases": ["network"],
             "api": "GET /network_info/{network}",
-            "data": "block_count, best_block_hash, hashrate, mempool{mempool_txs, mempool_size, updated_at, blocks[{block_num, num_txs, size, weight, min_fee_rate, median_fee_rate, max_fee_rate, *_precise}]}"
+            "data": "block_count, best_block_hash, hashrate, mempool{mempool_txs, mempool_size, updated_at, loading (true while the mempool is still being read in; counts can be low), blocks[{block_num, num_txs, size, weight, min_fee_rate, median_fee_rate, max_fee_rate, *_precise}]}"
         },
         "fees <network>": {
             "api": "GET /network_info/{network}",
@@ -166,7 +166,7 @@ fn commands() -> Value {
         },
         "account": {
             "api": "GET /account_info (needs a key)",
-            "data": "the account object, without the envelope: plan, num_requests_used, key{name, access}, ..."
+            "data": "the account object, without the envelope: plan{name, max_monthly_requests, current_period_ends_at, will_renew_at_period_end, ...}, num_requests_used{today, yesterday, this_month}, quota_resets_in_seconds, key{name, access}, last_login_at"
         },
         "auth login [--no-verify]": {
             "does": "read a key from a hidden prompt or stdin, check it with GET /account_info, and save it readable only by you",
