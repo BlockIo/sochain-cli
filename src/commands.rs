@@ -1207,9 +1207,14 @@ fn show_chart(out: &mut dyn Write, n: Network, r: Chart, last: usize) -> Result<
     Ok(())
 }
 
-/// A transaction kind as words, with names in their usual casing:
+/// A transaction kind as words, written as sochain.com writes it:
 /// `coinjoin` is `CoinJoin`, `lightning_close` is `Lightning close`.
 fn kind_name(kind: &str) -> String {
+    match kind {
+        "mweb_peg_in" => return "MWEB peg-in".into(),
+        "fee_bumped" => return "fee-bumped".into(),
+        _ => {}
+    }
     kind.split('_')
         .map(|w| match w {
             "coinjoin" => "CoinJoin",
@@ -1549,7 +1554,8 @@ mod tests {
     fn names_transaction_kinds() {
         assert_eq!(kind_name("coinjoin"), "CoinJoin");
         assert_eq!(kind_name("lightning_close"), "Lightning close");
-        assert_eq!(kind_name("mweb_peg_in"), "MWEB peg in");
+        assert_eq!(kind_name("mweb_peg_in"), "MWEB peg-in");
+        assert_eq!(kind_name("fee_bumped"), "fee-bumped");
         assert_eq!(kind_name("batch_payout"), "batch payout");
         assert_eq!(kind_name("payment"), "payment");
     }

@@ -14,7 +14,8 @@ names, environment variables, exit codes, error codes, and the shape of
 
 ### Changed
 
-- Transaction kinds use their usual names: CoinJoin, Lightning and MWEB.
+- Transaction kinds are written as on sochain.com, such as CoinJoin,
+  Lightning close, MWEB peg-in and fee-bumped.
 
 ## [0.1.1] - 2026-10-12
 
