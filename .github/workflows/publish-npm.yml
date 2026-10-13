@@ -49,6 +49,10 @@ jobs:
         run: npm install --global npm@latest
 
       - name: Publish
+        # Verbose output includes npm's trusted-publishing token exchange,
+        # which says why a publish was refused.
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
         run: |
           npm --version
           shopt -s nullglob
