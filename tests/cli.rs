@@ -1093,3 +1093,16 @@ fn account_shows_the_monthly_quota() {
             "Requests this month 12,345 of 500,000 · resets in 3 days 4 h",
         ));
 }
+
+#[test]
+fn price_in_another_currency_is_just_the_price() {
+    let m = mock(vec![ok(
+        json!({ "value": "70000.00000000", "currency": "EUR", "as_of": 1_790_000_000 }),
+    )]);
+    sochain(&m, &config())
+        .args(["price", "BTC", "--currency", "EUR"])
+        .assert()
+        .success()
+        .stdout("1 BTC = 70,000.00 EUR as of 2026-09-21 14:13:20 UTC\n");
+    assert_eq!(m.paths(), ["/api/v3/price/BTC?currency=EUR"]);
+}

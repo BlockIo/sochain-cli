@@ -968,13 +968,6 @@ fn show_price(out: &mut dyn Write, n: Network, historic: bool, p: PriceData) -> 
         _ => String::new(),
     };
     writeln!(out, "1 {n} = {price}{when}")?;
-    if p.method.as_deref() == Some("usd_fx") {
-        let date = p.fx_date.map(|d| format!(" of {d}")).unwrap_or_default();
-        writeln!(
-            out,
-            "Converted from US dollars at the ECB reference rate{date}."
-        )?;
-    }
     Ok(())
 }
 

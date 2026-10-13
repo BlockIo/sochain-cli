@@ -130,7 +130,7 @@ fn commands() -> Value {
         },
         "price <network> [--time T]": {
             "api": "GET /price/{network} or GET /price/{network}/{unix_timestamp}",
-            "data": "value, currency, as_of?, sources?; with --currency: method (native | usd_fx), fx_rate?, fx_date? (usd_fx only)",
+            "data": "value, currency, as_of? (the latest price only)",
             "notes": "--time takes unix seconds or a date and gives that UTC day's opening price"
         },
         "rich-list <network> [--page N] [--page-size 25|50|100]": {
