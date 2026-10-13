@@ -80,7 +80,7 @@ Every lookup names its network first, in any case:
 | `transaction-counts <net> <address>` | Sent, received and total (alias `counts`) |
 | `unspent-outputs <net> <address> [--page N]` | Spendable outputs (aliases `utxos`, `unspent`) |
 | `is-valid-address <net> <address>` | Whether an address is valid on a network (alias `validate`) |
-| `transaction <net> <txid>` | Confirmations, inputs, outputs and fee (alias `tx`) |
+| `transaction <net> <txid>` | Confirmations, inputs, outputs, fee and kind, such as a payment or CoinJoin (alias `tx`) |
 | `transaction-status <net> <txid>` | Pending, mined, replaced, dropped, expired or unknown (alias `status`) |
 | `block <net> <height\|hash\|latest>` | A block |
 | `latest-blocks <net>` | The 10 newest blocks (alias `blocks`) |

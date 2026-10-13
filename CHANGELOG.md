@@ -10,6 +10,18 @@ names, environment variables, exit codes, error codes, and the shape of
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-12
+
+### Added
+
+- `transaction` shows what kind of transaction it is (such as a payment,
+  CoinJoin or inscription) when SoChain has classified it, and says when the
+  kind is a guess.
+- `account` shows requests this month against the plan's monthly quota, and
+  when the count resets.
+- `network-info` and `fees` say when SoChain is still reading the mempool in
+  and its counts may be low.
+
 ## [0.1.0] - 2026-10-10
 
 ### Added
@@ -27,5 +39,6 @@ names, environment variables, exit codes, error codes, and the shape of
 - `skill` and `mcp` to set up AI agents.
 - `schema` and `guide` for scripts and agents.
 
-[Unreleased]: https://github.com/BlockIo/sochain-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/BlockIo/sochain-cli/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/BlockIo/sochain-cli/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/BlockIo/sochain-cli/releases/tag/v0.1.0
