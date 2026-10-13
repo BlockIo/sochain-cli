@@ -647,7 +647,7 @@ fn show_transaction(out: &mut dyn Write, n: Network, tx: Transaction) -> Result<
         } else {
             ""
         };
-        writeln!(out, "Kind {}{guess}", kind.replace('_', " "))?;
+        writeln!(out, "Kind {}{guess}", kind_name(kind))?;
     }
     writeln!(out, "From:")?;
     if tx.inputs.is_empty() {
@@ -1207,6 +1207,20 @@ fn show_chart(out: &mut dyn Write, n: Network, r: Chart, last: usize) -> Result<
     Ok(())
 }
 
+/// A transaction kind as words, with names in their usual casing:
+/// `coinjoin` is `CoinJoin`, `lightning_close` is `Lightning close`.
+fn kind_name(kind: &str) -> String {
+    kind.split('_')
+        .map(|w| match w {
+            "coinjoin" => "CoinJoin",
+            "lightning" => "Lightning",
+            "mweb" => "MWEB",
+            w => w,
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// `3 days 4 h`, `5 h 20 min`, `12 min`.
 fn duration(s: u64) -> String {
     let (d, h, m) = (s / 86_400, s % 86_400 / 3_600, s % 3_600 / 60);
@@ -1529,6 +1543,15 @@ mod tests {
             "lt_1 11,407 (228)"
         );
         assert_eq!(format_chart_value("tx_count", &Value::Null), "no data");
+    }
+
+    #[test]
+    fn names_transaction_kinds() {
+        assert_eq!(kind_name("coinjoin"), "CoinJoin");
+        assert_eq!(kind_name("lightning_close"), "Lightning close");
+        assert_eq!(kind_name("mweb_peg_in"), "MWEB peg in");
+        assert_eq!(kind_name("batch_payout"), "batch payout");
+        assert_eq!(kind_name("payment"), "payment");
     }
 
     #[test]
