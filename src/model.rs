@@ -253,10 +253,6 @@ pub struct PriceData {
     pub currency: String,
     #[serde(default)]
     pub as_of: Option<i64>,
-    #[serde(default)]
-    pub method: Option<String>,
-    #[serde(default)]
-    pub fx_date: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
