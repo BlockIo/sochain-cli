@@ -10,6 +10,12 @@ names, environment variables, exit codes, error codes, and the shape of
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-13
+
+### Changed
+
+- Transaction kinds use their usual names: CoinJoin, Lightning and MWEB.
+
 ## [0.1.1] - 2026-10-12
 
 ### Added
@@ -39,6 +45,7 @@ names, environment variables, exit codes, error codes, and the shape of
 - `skill` and `mcp` to set up AI agents.
 - `schema` and `guide` for scripts and agents.
 
-[Unreleased]: https://github.com/BlockIo/sochain-cli/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/BlockIo/sochain-cli/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/BlockIo/sochain-cli/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/BlockIo/sochain-cli/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/BlockIo/sochain-cli/releases/tag/v0.1.0

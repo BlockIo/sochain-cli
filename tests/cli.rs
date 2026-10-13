@@ -1043,7 +1043,7 @@ fn transaction_kind_is_shown_with_its_certainty() {
         .args(["tx", "BTC", TXID])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Kind coinjoin (likely)\n"));
+        .stdout(predicate::str::contains("Kind CoinJoin (likely)\n"));
     sochain(&m, &config())
         .args(["tx", "BTC", TXID])
         .assert()
