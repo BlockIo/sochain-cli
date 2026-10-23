@@ -10,7 +10,7 @@ names, environment variables, exit codes, error codes, and the shape of
 
 ## [Unreleased]
 
-## [0.1.4] - 2026-10-22
+## [0.1.4] - 2026-10-23
 
 ### Security
 
