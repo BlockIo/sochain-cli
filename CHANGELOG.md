@@ -10,6 +10,15 @@ names, environment variables, exit codes, error codes, and the shape of
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-23
+
+### Security
+
+- Updated the TLS libraries (rustls 0.23.46, rustls-webpki 0.103.16,
+  webpki-root-certs 1.0.10) for RUSTSEC-2026-0346 to -0349, RUSTSEC-2026-0382
+  and RUSTSEC-2026-0383. Among other fixes, certificates issued through
+  distrusted intermediates are no longer accepted.
+
 ## [0.1.3] - 2026-10-13
 
 ### Changed
@@ -52,7 +61,8 @@ names, environment variables, exit codes, error codes, and the shape of
 - `skill` and `mcp` to set up AI agents.
 - `schema` and `guide` for scripts and agents.
 
-[Unreleased]: https://github.com/BlockIo/sochain-cli/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/BlockIo/sochain-cli/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/BlockIo/sochain-cli/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/BlockIo/sochain-cli/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/BlockIo/sochain-cli/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/BlockIo/sochain-cli/compare/v0.1.0...v0.1.1
